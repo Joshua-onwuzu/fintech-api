@@ -16,7 +16,7 @@ The Api Documentation for this project can be found on [api documentation](https
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes
 
 #### Prerequisites
-You need to have Mysql, Nodejs, and Npm installed on your local machine
+You need to have Mysql,Adonis, Nodejs, and Npm installed globally on your local machine
 
 #### Installing
 * Clone the repository ```https://github.com/Joshua-onwuzu/fintech-api.git ```
