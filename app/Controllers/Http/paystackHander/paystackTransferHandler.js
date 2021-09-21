@@ -1,7 +1,10 @@
 const axios = use('axios');
 
 
-
+const headers = {
+    'Authorization' : 'Bearer sk_test_06369f111627527b9733d9b46ee3748ba926bd15',
+    'Content-Type': 'application/json'
+};
 const paystackTransferHandler = async (userName,userAccount,userBank,amount)=>{
     try{
         const userData = {
@@ -33,7 +36,9 @@ const paystackTransferHandler = async (userName,userAccount,userBank,amount)=>{
 
         
     } catch (err){
-        console.log(err.data)
+        console.log(err)
+        return false
+        
     }
 }
 

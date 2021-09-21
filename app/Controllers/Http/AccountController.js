@@ -8,8 +8,9 @@
  * Resourceful controller for interacting with accounts
  */
 
-const Account = use('App/Models/Account')
-const paystackFundHandler = use('./paystackHander/paystackHandler')
+const Account = use('App/Models/Account');
+const paystackFundHandler = use('./paystackHander/paystackHandler');
+const paystackTransferHandler = use('./paystackHander/paystackTransferHandler')
 
 const Database = use('Database')
 const Hash = use('Hash')
@@ -124,6 +125,20 @@ class AccountController {
           const fundedEmail = paystack.data.customer.email ;
           
           response.status(200);
+          
+          
+          const userData = await Account
+          .query()
+          .where('email', fundedEmail)
+          .orWhereNull('email')
+          .first();
+          
+          
+          const userBalance =  userData?.$attributes.account_balance ; 
+          
+          const newBalance = parseInt(userBalance) + parseInt(amount) ;
+
+          await Database.table('accounts').where("email",fundedEmail).update('account_balance',newBalance)
           return {
               status : "success",
               amount : fundedAmount,
@@ -201,14 +216,14 @@ class AccountController {
 
         
 
-        await Database.table('accounts').where("id",userId).update('account_balance',newBalance)
+        await Database.table('accounts').where("id",params.userId).update('account_balance',newBalance)
 
-            const recieverBalance = checkRecieverEmail?.$original.account_balance;
+            const recieverBalance = checkRecieverEmail?.$attributes.account_balance;
 
             const newRecieverBal = parseInt(amount)  + parseInt(recieverBalance);
         try{
             
-            await Database.table('accounts').where("email",email).update('account_balance',newBalance)
+            await Database.table('accounts').where("email",email).update('account_balance',newRecieverBal)
             
             response.status(200);
             return {
@@ -306,73 +321,90 @@ class AccountController {
    * @param {View} ctx.view
    */
   async withdrawal ({ params, request, response }) {
-    const id = await Account.find(params.userId);
+      try{
+        const id = await Account.find(params.userId);
 
-    const {amount, password} = request.post();
-    if (id == null){
-      response.status(400);
-      return {
-          status : "fail",
-          message : "user not found"
-      }
-    }
-    const userPassword = id?.$attributes.password;
-
-    const userName = id?.$attributes.name;
-    if(!amount || !password){
-      response.status(400);
-      return {
-          status : "fail",
-          message : "amount and password required"
-      }
-    }
-    if (await Hash.verify(userPassword, password)){
-
-      const userBalance = id?.$attributes.account_balance ;
-      if(userBalance < amount){
-        response.status(400);
-        return {
-            status : "fail",
-            message : "insufficient account balance"
-        }
-      }
-      const userAccount = id?.$attributes.account_number ;
-
-      const userBank = id?.$attributes.bank ;
-
-      const userEmail = id?.$attributes.email ;
-      if (userAccount == null){
-        response.status(400);
-        return {
-            status : "fail",
-            message : "user beneficiary account not found"
-        }
-      }
-      const paystack = await paystackTransferHandler(userName, userAccount,userBank, amount);
-
-      if(paystack){
-          return {
-              status : "success",
-              account : userAccount,
-              email : userEmail,
-              amount : amount,
-              message : "transaction pending"
-          }
-      } else{
+        const {amount, password} = request.post();
+        if (id == null){
           response.status(400);
-          return{
+          return {
               status : "fail",
-              message : "could not resolve account"
+              message : "user not found"
           }
-      }
-
-    } else {
-        response.status(400);
-        return {
-            status : "fail",
-            message : "Incorrect password"
         }
-    }
+        const userPassword = id?.$attributes.password;
+    
+        const userName = id?.$attributes.name;
+        if(!amount || !password){
+          response.status(400);
+          return {
+              status : "fail",
+              message : "amount and password required"
+          }
+        }
+        if (await Hash.verify(password, userPassword)){
+    
+          const userBalance = id?.$attributes.account_balance ;
+          if(userBalance < amount){
+            response.status(400);
+            return {
+                status : "fail",
+                message : "insufficient account balance"
+            }
+          }
+          const userAccount = id?.$attributes.account_number ;
+    
+          const userBank = id?.$attributes.bank ;
+    
+          const userEmail = id?.$attributes.email ;
+          if (userAccount == null){
+            response.status(400);
+            return {
+                status : "fail",
+                message : "user beneficiary account not found"
+            }
+          }
+          const paystack = await paystackTransferHandler(userName, userAccount,userBank, amount);
+          
+          if(paystack){
+            
+            
+            const userData = await Account
+            .query()
+            .where('name', userName)
+            .orWhereNull('name')
+            .first();
+    
+            const userBalance =  userData?.$attributes.account_balance
+             
+            const newBalance = parseInt(userBalance) - parseInt(amount) ;
+            
+            await Database.table('accounts').where("id",params.userId).update('account_balance',newBalance);
+              return {
+                  status : "success",
+                  account : userAccount,
+                  email : userEmail,
+                  amount : amount,
+                  message : "transaction pending"
+              }
+          } else{
+              response.status(400);
+              return{
+                  status : "fail",
+                  message : "could not resolve account"
+              }
+          }
+    
+        } else {
+            response.status(400);
+            return {
+                status : "fail",
+                message : "Incorrect password"
+            }
+        }
+      }catch(err){
+        console.log(err)
+      }
   }
 
   /**
@@ -388,18 +420,7 @@ class AccountController {
 
     if(event == "transfer.success"){
         try{
-          const userName = request.post().data.recipient.name
-          const amount = request.post().data.amount
-          const userData = await Account
-          .query()
-          .where('name', userName)
-          .orWhereNull('name')
-          .first();
-          const userBalance =  userData?.$attributes.account_balance
-           
-          const newBalance = parseInt(userBalance) - parseInt(amount) ;
-          
-          await Database.table('accounts').where("name",userName).update('account_balance',newBalance);
+
           
           response.status(200)
         } catch (err){
@@ -411,21 +432,6 @@ class AccountController {
     if(event == "charge.success"){
         try{
           response.status(200)
-          const userEmail = request.post().data.customer.email
-          
-          const userData = await Account
-          .query()
-          .where('email', userEmail)
-          .orWhereNull('email')
-          .first();
-          const amount = request.post().data.amount
-          
-          const userBalance =  userData?.$attributes.account_balance ; 
-          
-          const newBalance = parseInt(userBalance) + parseInt(amount) ;
-
-          await Database.table('accounts').where("email",userEmail).update('account_balance',newBalance)
-          
         }catch (err){
           console.log(err);
         }
