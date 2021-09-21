@@ -26,7 +26,7 @@ You need to have Mysql, Nodejs, and Npm installed on your local machine
 * Set the DB_USER and DB_PASSWORD variables to your mysql username and password
 * Create a database in mysql using ``` CREATE DATABASE example ``` and set the DB_DATABASE variable in the .env file to the name of the database
 * Run ``` adonis migration:run ``` to save table and column to the database
-* Run ```adonis server --dev ``` to start the server
+* Run ```adonis serve --dev ``` to start the server
 
 ### Test Bank
 Use the following bank details to test the fund, withdrawal, and the add beneficiary endpoints
